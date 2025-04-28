@@ -1,52 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import '../styles.css';
+import { Campaign } from '../types.ts';
 
 interface CreateCampaignProps {
   contract: ethers.Contract | null;
   onClose: () => void;
   refreshCampaigns: () => void;
+  isEdit?: boolean;
+  campaignId?: number;
+  initialTitle?: string;
+  initialGoal?: string;
+  initialDeadline?: Date;
 }
 
-const CreateCampaign: React.FC<CreateCampaignProps> = ({ 
-  contract, 
+const CreateCampaign: React.FC<CreateCampaignProps> = ({
+  contract,
   onClose,
-  refreshCampaigns
+  refreshCampaigns,
+  isEdit,
+  campaignId,
+  initialTitle,
+  initialGoal,
+  initialDeadline
 }) => {
-  const [title, setTitle] = useState<string>('');
-  const [goal, setGoal] = useState<string>('');
-  const [durationDays, setDurationDays] = useState<string>('30');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [title, setTitle] = useState(initialTitle || '');
+  const [goal, setGoal] = useState(initialGoal || '');
+  const [deadline, setDeadline] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const defaultDate = new Date(Date.now() + 3 * 86400 * 1000);
+    const datetimeLocal = defaultDate.toISOString().slice(0, 16);
+    setDeadline(initialDeadline ? 
+      new Date(initialDeadline.getTime() - (initialDeadline.getTimezoneOffset() * 60000))
+        .toISOString()
+        .slice(0, 16) : 
+      datetimeLocal);
+  }, [initialDeadline]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!contract) return;
-    
+    if (!contract || (isEdit && !campaignId)) return;
+
     try {
       setLoading(true);
       setError('');
-
-      // Calculate deadline timestamp (current time + duration in days)
-      const deadlineTimestamp = Math.floor(Date.now() / 1000) + (parseInt(durationDays) * 24 * 60 * 60);
-      
-      // Convert goal to wei
       const goalInWei = ethers.parseEther(goal);
-      
-      // Create campaign
-      const tx = await contract.createCampaign(
-        title,
-        goalInWei,
-        deadlineTimestamp
-      );
-      
-      await tx.wait();
+      const selectedDate = new Date(deadline);
+      const deadlineTimestamp = Math.floor(selectedDate.getTime() / 1000);
+
+      if (selectedDate.getTime() < Date.now()) {
+        throw new Error('Deadline must be in the future');
+      }
+
+      if (isEdit) {
+        const tx = await contract.editCampaign(campaignId, title, goalInWei, deadlineTimestamp);
+        await tx.wait();
+      } else {
+        const tx = await contract.createCampaign(title, goalInWei, deadlineTimestamp);
+        await tx.wait();
+      }
+
       refreshCampaigns();
       onClose();
     } catch (error: any) {
-      console.error('Create campaign error:', error);
-      setError(error.message ? error.message.substring(0, 100) : 'Transaction failed');
+      setError(error.reason || error.message?.substring(0, 100) || 'Transaction failed');
     } finally {
       setLoading(false);
     }
@@ -54,70 +74,44 @@ const CreateCampaign: React.FC<CreateCampaignProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="create-campaign-modal">
-        <div className="modal-header">
-          <h2>Create New Campaign</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
-        </div>
-        
+      <div className="modal">
+        <h2>{isEdit ? 'Edit Campaign' : 'Create Campaign'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="title">Campaign Title</label>
+            <label>Title</label>
             <input
               type="text"
-              id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter a title for your campaign"
               required
             />
           </div>
-          
           <div className="form-group">
-            <label htmlFor="goal">Funding Goal (ETH)</label>
+            <label>Goal (ETH)</label>
             <input
               type="number"
-              id="goal"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
-              step="0.01"
               min="0.01"
-              placeholder="Enter funding goal in ETH"
+              step="0.01"
               required
             />
           </div>
-          
           <div className="form-group">
-            <label htmlFor="duration">Duration (days)</label>
+            <label>Deadline</label>
             <input
-              type="number"
-              id="duration"
-              value={durationDays}
-              onChange={(e) => setDurationDays(e.target.value)}
-              min="1"
-              max="365"
-              placeholder="Campaign duration in days"
+              type="datetime-local"
+              value={deadline}
+              min={new Date().toISOString().slice(0, 16)}
+              onChange={(e) => setDeadline(e.target.value)}
               required
             />
           </div>
-          
-          {error && <div className="error-message">{error}</div>}
-          
+          {error && <div className="error">{error}</div>}
           <div className="form-actions">
-            <button 
-              type="button" 
-              className="cancel-btn"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              className="submit-btn"
-              disabled={loading || !title || !goal || !durationDays}
-            >
-              {loading ? 'Creating...' : 'Create Campaign'}
+            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="submit" disabled={loading}>
+              {loading ? 'Processing...' : isEdit ? 'Save Changes' : 'Create'}
             </button>
           </div>
         </form>

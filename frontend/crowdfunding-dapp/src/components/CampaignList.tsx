@@ -1,97 +1,68 @@
 import { useState } from 'react';
+import CampaignCard from './CampaignCard';
+import '../styles.css'; // Import the external CSS file
+import { Campaign } from '../types';
 import { ethers } from 'ethers';
-import CampaignCard from './CampaignCard.tsx';
-import '../styles.css';
-
-interface Campaign {
-  id: number;
-  title: string;
-  goal: string;
-  deadline: Date;
-  totalContributed: string;
-  creator: string;
-  isFunded: boolean;
-  isRefunded: boolean;
-  userContribution: string;
-}
 
 interface CampaignListProps {
   campaigns: Campaign[];
   contract: ethers.Contract | null;
   account: string;
   refreshCampaigns: () => void;
+  openEditModal: (campaign: Campaign) => void;
 }
 
-const CampaignList: React.FC<CampaignListProps> = ({ 
-  campaigns, 
-  contract, 
+const CampaignList: React.FC<CampaignListProps> = ({
+  campaigns,
+  contract,
   account,
-  refreshCampaigns 
+  refreshCampaigns,
+  openEditModal
 }) => {
   const [filter, setFilter] = useState<'all' | 'active' | 'ended'>('all');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const filteredCampaigns = campaigns.filter(campaign => {
-    const matchesFilter = filter === 'all' || 
-      (filter === 'active' && campaign.deadline > new Date()) ||
-      (filter === 'ended' && campaign.deadline <= new Date());
-    
     const matchesSearch = campaign.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const isActive = campaign.deadline > new Date() && !campaign.isCancelled;
     
-    return matchesFilter && matchesSearch;
+    return matchesSearch && (
+      filter === 'all' ||
+      (filter === 'active' && isActive) ||
+      (filter === 'ended' && !isActive)
+    );
   });
 
   return (
     <div className="campaign-list-container">
-      <div className="campaigns-filters">
-        <div className="search-bar">
-          <input
-            type="text"
-            placeholder="Search campaigns..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+      <div className="campaign-list-controls">
+        <input
+          type="text"
+          placeholder="Search campaigns..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="campaign-search-input"
+        />
         
-        <div className="filter-buttons">
-          <button 
-            className={filter === 'all' ? 'active' : ''} 
-            onClick={() => setFilter('all')}
-          >
-            All
-          </button>
-          <button 
-            className={filter === 'active' ? 'active' : ''} 
-            onClick={() => setFilter('active')}
-          >
-            Active
-          </button>
-          <button 
-            className={filter === 'ended' ? 'active' : ''} 
-            onClick={() => setFilter('ended')}
-          >
-            Ended
-          </button>
+        <div className="campaign-filters">
+          <button onClick={() => setFilter('all')} className="filter-button">All</button>
+          <button onClick={() => setFilter('active')} className="filter-button">Active</button>
+          <button onClick={() => setFilter('ended')} className="filter-button">Ended</button>
         </div>
       </div>
 
-      {filteredCampaigns.length === 0 ? (
-        <div className="no-campaigns">
-          <p>No campaigns found</p>
-        </div>
-      ) : (
-        <div className="campaigns-grid">
-          {filteredCampaigns.map(campaign => (
-            <CampaignCard
-              key={campaign.id}
-              campaign={campaign}
-              contract={contract}
-              account={account}
-              refreshCampaigns={refreshCampaigns}
-            />
-          ))}
-        </div>
-      )}
+      <div className="campaign-grid">
+        {filteredCampaigns.map(campaign => (
+          <CampaignCard
+            key={campaign.id}
+            campaign={campaign}
+            contract={contract}
+            account={account}
+            refreshCampaigns={refreshCampaigns}
+            openEditModal={openEditModal}
+          />
+        ))}
+      </div>
     </div>
   );
 };

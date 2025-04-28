@@ -1,211 +1,183 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
 import '../styles.css';
-
-interface Campaign {
-  id: number;
-  title: string;
-  goal: string;
-  deadline: Date;
-  totalContributed: string;
-  creator: string;
-  isFunded: boolean;
-  isRefunded: boolean;
-  userContribution: string;
-}
+import { Campaign } from '../types';
 
 interface CampaignCardProps {
   campaign: Campaign;
   contract: ethers.Contract | null;
   account: string;
   refreshCampaigns: () => void;
+  openEditModal: (campaign: Campaign) => void;
 }
 
-const CampaignCard: React.FC<CampaignCardProps> = ({ 
-  campaign, 
-  contract, 
+const CampaignCard: React.FC<CampaignCardProps> = ({
+  campaign,
+  contract,
   account,
-  refreshCampaigns 
+  refreshCampaigns,
+  openEditModal
 }) => {
-  const [contributionAmount, setContributionAmount] = useState<string>('');
-  const [isContributing, setIsContributing] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [contributionAmount, setContributionAmount] = useState('');
+  const [isContributing, setIsContributing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const isActive = campaign.deadline > new Date();
   const progress = (parseFloat(campaign.totalContributed) / parseFloat(campaign.goal)) * 100;
-  const isCreator = campaign.creator.toLowerCase() === account.toLowerCase();
+  const isCreator = campaign.creator.toLowerCase() === account?.toLowerCase();
   const isGoalMet = parseFloat(campaign.totalContributed) >= parseFloat(campaign.goal);
   const hasContributed = parseFloat(campaign.userContribution) > 0;
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
-  const handleContribute = async () => {
-    if (!contract || !contributionAmount) return;
-
-    try {
-      setLoading(true);
-      setError('');
-
-      const tx = await contract.contribute(campaign.id, {
-        value: ethers.parseEther(contributionAmount)
-      });
-      
-      await tx.wait();
-      setContributionAmount('');
-      setIsContributing(false);
-      refreshCampaigns();
-    } catch (error: any) {
-      console.error('Contribution error:', error);
-      setError(error.message ? error.message.substring(0, 100) : 'Transaction failed');
-    } finally {
-      setLoading(false);
+  const handleAction = async (action: () => Promise<void>) => {
+    if (!contract) {
+      setError('Wallet not connected');
+      return;
     }
-  };
-
-  const handleReleaseFunds = async () => {
-    if (!contract) return;
-
     try {
       setLoading(true);
       setError('');
-
-      const tx = await contract.releaseFunds(campaign.id);
-      await tx.wait();
+      await action();
       refreshCampaigns();
     } catch (error: any) {
-      console.error('Release funds error:', error);
-      setError(error.message ? error.message.substring(0, 100) : 'Transaction failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefund = async () => {
-    if (!contract) return;
-
-    try {
-      setLoading(true);
-      setError('');
-
-      const tx = await contract.refundContribution(campaign.id);
-      await tx.wait();
-      refreshCampaigns();
-    } catch (error: any) {
-      console.error('Refund error:', error);
-      setError(error.message ? error.message.substring(0, 100) : 'Transaction failed');
+      setError(error.reason || error.message?.substring(0, 100) || 'Transaction failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className={`campaign-card ${!isActive ? 'ended' : ''}`}>
+    <div className="campaign-card">
       <div className="campaign-header">
         <h3>{campaign.title}</h3>
-        <span className={`status ${isActive ? 'active' : 'ended'}`}>
-          {isActive ? 'Active' : 'Ended'}
-        </span>
+        <div className={`status ${campaign.isCancelled ? 'cancelled' : ''}`}>
+          {campaign.isCancelled ? 'Cancelled' : 
+           campaign.isFunded ? 'Funded' :
+           isGoalMet ? 'Ended' : 
+           isActive ? 'Active' : 'Ended'}
+        </div>
       </div>
 
       <div className="campaign-details">
-        <div className="goal-info">
+        <div className="progress-container">
+          <div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }} />
+        </div>
+        
+        <div className="stats">
           <span>Goal: {campaign.goal} ETH</span>
           <span>Raised: {campaign.totalContributed} ETH</span>
+          <span>Backers: {campaign.totalBackers}</span>
         </div>
-        
-        <div className="progress-bar">
-          <div 
-            className="progress" 
-            style={{ width: `${progress > 100 ? 100 : progress}%` }}
-          />
-        </div>
-        
-        <div className="campaign-meta">
-          <p>Deadline: {formatDate(campaign.deadline)}</p>
-          <p className="creator">
-            Creator: {isCreator ? 'You' : `${campaign.creator.substring(0, 6)}...${campaign.creator.substring(campaign.creator.length - 4)}`}
-          </p>
-          {hasContributed && (
-            <p className="your-contribution">Your contribution: {campaign.userContribution} ETH</p>
-          )}
-        </div>
-      </div>
 
-      {error && <div className="error-message">{error}</div>}
+        <div className="deadline-creator">
+          <span>Deadline: {formatDate(campaign.deadline)}</span>
+          <span>Creator: {isCreator ? 'You' : `${campaign.creator.slice(0, 6)}...${campaign.creator.slice(-4)}`}</span>
+        </div>
 
-      <div className="campaign-actions">
-        {isActive ? (
-          isContributing ? (
-            <div className="contribution-form">
-              <input
-                type="number"
-                step="0.01"
-                placeholder="ETH amount"
-                value={contributionAmount}
-                onChange={(e) => setContributionAmount(e.target.value)}
-              />
-              <div className="contribution-buttons">
+        {hasContributed && (
+          <div className="user-contribution">
+            Your contribution: {campaign.userContribution} ETH
+          </div>
+        )}
+
+        {error && <div className="error">{error}</div>}
+
+        <div className="actions">
+          {/* Only show the Contribute button if the wallet is connected */}
+          {account && !isGoalMet && isActive ? (
+            isContributing ? (
+              <>
+                <input
+                  type="number"
+                  value={contributionAmount}
+                  onChange={(e) => setContributionAmount(e.target.value)}
+                  placeholder="ETH amount"
+                  step="0.01"
+                  min="0.01"
+                />
                 <button 
-                  onClick={handleContribute}
-                  disabled={loading || !contributionAmount}
-                >
-                  {loading ? 'Processing...' : 'Contribute'}
-                </button>
-                <button 
-                  className="cancel-btn"
-                  onClick={() => setIsContributing(false)}
+                  onClick={() => handleAction(async () => {
+                    await contract!.contribute(campaign.id, {
+                      value: ethers.parseEther(contributionAmount)
+                    });
+                    setIsContributing(false);
+                  })}
                   disabled={loading}
                 >
-                  Cancel
+                  {loading ? 'Processing...' : 'Confirm'}
                 </button>
-              </div>
-            </div>
-          ) : (
+                <button onClick={() => setIsContributing(false)}>Cancel</button>
+              </>
+            ) : (
+              <button 
+                onClick={() => setIsContributing(true)} 
+                style={{
+                  padding: '12px 20px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  backgroundColor: '#808080',
+                  color: 'white',
+                  border: 'none',
+                  transition: 'background-color 0.3s ease, transform 0.2s ease',
+                  width: '100%', 
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  textAlign: 'center'
+                }}
+              >
+                Contribute
+              </button>
+            )
+          ) : null}
+
+          {/* Other Action buttons */}
+          {isCreator && isGoalMet && !campaign.isFunded && (
             <button 
-              className="contribute-btn"
-              onClick={() => setIsContributing(true)}
+              onClick={() => handleAction(() => contract!.releaseFunds(campaign.id))}
+              disabled={loading}
             >
-              Contribute
+              {loading ? 'Processing...' : 'Release Funds'}
             </button>
-          )
-        ) : (
-          <>
-            {isCreator && !campaign.isFunded && isGoalMet && (
+          )}
+          {!isCreator && hasContributed && !isGoalMet && !campaign.isRefunded && (
+            <button 
+              onClick={() => handleAction(() => contract!.refundContribution(campaign.id))}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Claim Refund'}
+            </button>
+          )}
+
+          {/* Creator-only actions */}
+          {!isGoalMet && isCreator && !campaign.isFunded && !campaign.isCancelled && (
+            <div className="creator-actions">
               <button 
-                className="release-btn"
-                onClick={handleReleaseFunds}
+                className="edit-btn"
+                onClick={() => openEditModal(campaign)}
+              >
+                Edit
+              </button>
+              <button
+                className="danger"
+                onClick={() => handleAction(() => contract!.cancelCampaign(campaign.id))}
                 disabled={loading}
               >
-                {loading ? 'Processing...' : 'Release Funds'}
+                {loading ? 'Cancelling...' : 'Cancel'}
               </button>
-            )}
-            
-            {!isCreator && hasContributed && !isGoalMet && !campaign.isRefunded && (
-              <button 
-                className="refund-btn"
-                onClick={handleRefund}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Claim Refund'}
-              </button>
-            )}
-            
-            {(campaign.isFunded || campaign.isRefunded) && (
-              <div className="campaign-completed">
-                {campaign.isFunded ? 'Funds released to creator' : 'Campaign unsuccessful'}
-              </div>
-            )}
-          </>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
