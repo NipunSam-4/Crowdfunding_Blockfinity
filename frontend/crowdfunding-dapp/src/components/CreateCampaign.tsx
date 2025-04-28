@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import '../styles.css';
-import { Campaign } from '../types.ts';
+// import { Campaign } from '../types.ts';
 
 interface CreateCampaignProps {
   contract: ethers.Contract | null;
