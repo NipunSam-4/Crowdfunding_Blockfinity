@@ -1,53 +1,93 @@
-Blockfinity
-	   Nipun Samal 230041025        Subhankar Das 230001073       Salaj Bansal 230002063
-	   Abhash Raj 230001002       Sanat Kumar Shukla 230005043       
-    Abhijeet Singh Parihar 230005001 
-  
+# Blockfinity
 
-Set Up Hardhat Project:
+## Team Members
 
-Initialize a new Hardhat project by running npx hardhat and follow the prompts to create a basic project.
+* Nipun Samal 230041025
+* Subhankar Das 230001073
+* Salaj Bansal 230002063
+* Abhash Raj 230001002
+* Sanat Kumar Shukla 230005043
+* Abhijeet Singh Parihar 230005001
 
-Install Dependencies:
+---
 
-Install necessary packages: npm install @openzeppelin/contracts ethers.
+## Set Up Hardhat Project
 
-Create Smart Contract:
+Initialize a new Hardhat project by running:
 
-In the contracts folder, create a new file named Crowdfunding.sol and implement your smart contract code.
+```bash
+npx hardhat
+```
 
-Compile Contracts:
+Follow the prompts to create a basic project.
 
-Compile your contracts using npx hardhat compile.
+## Install Dependencies
 
-Deploy Contract:
+Install necessary packages:
 
-Create a deployment script in the scripts folder, e.g., scripts/deploy.js, and write the deployment logic.
+```bash
+npm install @openzeppelin/contracts ethers
+```
 
-Deploy the contract to the local Hardhat network by running npx hardhat run scripts/deploy.js --network localhost.
+## Create Smart Contract
 
-Interact with Contract:
+In the `contracts` folder, create a new file named `Crowdfunding.sol` and implement your smart contract code.
 
-Open the Hardhat console with npx hardhat console --network localhost.
+## Compile Contracts
+
+Compile your contracts using:
+
+```bash
+npx hardhat compile
+```
+
+## Deploy Contract
+
+Create a deployment script in the `scripts` folder, e.g., `scripts/deploy.js`, and write the deployment logic.
+
+Deploy the contract to the local Hardhat network by running:
+
+```bash
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+## Interact with Contract
+
+Open the Hardhat console with:
+
+```bash
+npx hardhat console --network localhost
+```
 
 Interact with your deployed contract using the console.
 
-Front-End Development:
+## Front-End Development
 
-Install front-end dependencies: npm install ethers react.
+Install front-end dependencies:
 
-Start the development server: npm run dev.
+```bash
+npm install ethers react
+```
 
-Testing:
+Start the development server:
 
-Run tests using npx hardhat test.
+```bash
+npm run dev
+```
 
-Useful Commands:
+## Testing
 
-Start Hardhat node: npx hardhat node
+Run tests using:
 
-Compile contracts: npx hardhat compile
+```bash
+npx hardhat test
+```
 
-Deploy contract: npx hardhat run scripts/deploy.js --network localhost
+## Useful Commands
 
-Run tests: npx hardhat test
+| Command                                                 | Description        |
+| ------------------------------------------------------- | ------------------ |
+| `npx hardhat node`                                      | Start Hardhat node |
+| `npx hardhat compile`                                   | Compile contracts  |
+| `npx hardhat run scripts/deploy.js --network localhost` | Deploy contract    |
+| `npx hardhat test`                                      | Run tests          |
